@@ -4,7 +4,6 @@ import de.stiffi.DPHelpers.DPHelpers;
 import de.stiffi.DPHelpers.Files.DirSpider;
 import de.stiffi.DPHelpers.Files.SimpleDirSpider;
 import de.stiffi.DPHelpers.StopWatch;
-import org.apache.commons.io.IOUtils;
 
 import java.io.*;
 import java.nio.file.*;
@@ -17,6 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class FolderSyncWorker {
 
+    private int COPY_BUFFER_SIZE = 10 * 1024 * 1024;
     /**
      * Where to start the recursive Sync
      */
@@ -34,6 +34,10 @@ public class FolderSyncWorker {
         sftpConnection = new SftpConnection(sftpHost, sftpUser, sftpPassword, sftpPort);
     }
 
+    public void setCopyBufferSize(int size) {
+        COPY_BUFFER_SIZE = size;
+    }
+
     public List<SyncFilePair> go() {
         indexFiles();
 
@@ -41,22 +45,18 @@ public class FolderSyncWorker {
         List<SyncFilePair> syncedFiles = new ArrayList<>();
 
         StopWatch bytesStopWatch = new StopWatch(localFilesSizeComplete.get());
+        StopWatch filesStopWatch = new StopWatch(localFiles.size());
 
         localFiles.forEach(filePair -> {
             if (shouldSync(filePair)) {
                 try {
-                    System.out.println("");
-                    System.out.println("Uploading " + filePair.getLocal().getPath());
-                    StopWatch uploadStopwatch = new StopWatch();
-
                     uploadLocalFileToRemote(filePair);
 
-                    long elapsedMillis = uploadStopwatch.getElapsedTimeMillis();
-                    double speed = (double)((double)filePair.getLocal().getSize() / (double)elapsedMillis);
                     syncedFiles.add(filePair);
                     bytesStopWatch.increment(filePair.getLocal().getSize());
-                    System.out.println("finished. Speed: " + DPHelpers.formatBytes(speed) + "/s");
-                    System.out.println("");
+                    filesStopWatch.increment();
+
+                    printOverallProgress(filesStopWatch, bytesStopWatch);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -74,9 +74,20 @@ public class FolderSyncWorker {
                 + ", Files uploaded: " + syncedFiles.size()
                 + ", transferred: " + DPHelpers.formatBytes(bytesStopWatch.getProcessed()) + "/" + DPHelpers.formatBytes(localFilesSizeComplete.get())
                 + ", remaining Time: " + DPHelpers.formatDuration(bytesStopWatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms)
-               );
+        );
 
         return syncedFiles;
+    }
+
+    private void printOverallProgress(StopWatch filesStopWatch, StopWatch bytesStopWatch) {
+        String s = "---------------------";
+                s += "## ";
+        s += "Files: " + filesStopWatch.getProcessed() + "/" + filesStopWatch.getTotalCount();
+        s += ", ";
+        s += "Time: " + DPHelpers.formatDuration(bytesStopWatch.getElapsedTimeMillis(), DPHelpers.DurationFormat.dhms) + " ";
+        s += "Remaining: " + DPHelpers.formatDuration(bytesStopWatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms);
+
+        System.out.println(s);
     }
 
     private Collection<SyncFilePair> indexFiles() {
@@ -126,12 +137,37 @@ public class FolderSyncWorker {
      */
     private void uploadLocalFileToRemote(SyncFilePair filePair) throws IOException {
         //Since there is no observable Stream Copy mechanism, I'll build it on my own...
+        System.out.println("--------------------------");
+        System.out.println("Uploading " + filePair.getLocal().getPath() + ", " + DPHelpers.formatBytes(filePair.getLocal().getSize()));
+
         filePair.getRemote().createParentDir();
+
+        StopWatch stopWatch = new StopWatch(filePair.getLocal().getSize());
         try (InputStream in = new BufferedInputStream(filePair.getLocal().getInputStream()); OutputStream out = new BufferedOutputStream(filePair.getRemote().getOutputStream())) {
-            IOUtils.copyLarge(in, out);
+            byte[] buf = new byte[COPY_BUFFER_SIZE];
+            int len;
+            while ((len = in.read(buf)) != -1) {
+                out.write(buf, 0, len);
+                stopWatch.increment(len);
+                printFileProgress(stopWatch);
+            }
         }
         //Add 1000ms to the resulting filetime because sftp will make a floor to the seconds, so the reulting file would always be "older" than the original file.
         filePair.getRemote().setLastModifiedTime(filePair.getLocal().getLastModifiedTime() + 1000l);
+
+        System.out.println("");
+    }
+
+    private void printFileProgress(StopWatch stopWatch) {
+
+        double speed = (double) ((double) stopWatch.getProcessed() / (double) (stopWatch.getElapsedTimeMillis() / 1000.0));
+
+        System.out.print("File Upload: "
+                + DPHelpers.formatBytes(stopWatch.getProcessed()) + " / " + DPHelpers.formatBytes(stopWatch.getTotalCount())
+                + " Time elapsed: " + DPHelpers.formatDuration(stopWatch.getElapsedTimeMillis(), DPHelpers.DurationFormat.dhms)
+                + " Time remaining: " + DPHelpers.formatDuration(stopWatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms)
+                + " Speed: " + DPHelpers.formatBytes(speed) + "/s"
+                + "      \r");
     }
 
 

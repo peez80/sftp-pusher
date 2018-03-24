@@ -94,7 +94,6 @@ public class SftpConnection {
                 if (parentDir != null && !exists(parentDir)) {
                     createDirs(parentDir);
                 }
-                System.out.println("mkdir " + path);
                 if (!exists(path)) {
                     sftp.mkdir(path);
                 }

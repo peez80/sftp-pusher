@@ -60,6 +60,7 @@ public class FolderSyncWorkerTest {
     public void testSync() throws IOException {
         //Given
         FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        me.setCopyBufferSize(300);
 
         //When
         List<SyncFilePair> syncedFiles = me.go();
@@ -160,7 +161,7 @@ public class FolderSyncWorkerTest {
         testFilesRelativePaths = new ArrayList<>();
 
         testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder1/sub1/nextsub/file1.txt", 1000)));
-        testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder1/sub2/file2.txt", 3000)));
+        testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder1/sub2/file2.txt", 2000)));
         testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder1/sub2/file3.txt", 1500)));
         testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder2/file4.txt", 5000)));
     }
