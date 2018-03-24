@@ -64,9 +64,8 @@ public class FolderSyncWorker {
 
             processedFilesStopWatch.increment();
 
-            if (processedFilesStopWatch.getProcessed() % 10 == 0) {
-                printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get());
-            }
+            printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get());
+
         });
 
         printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get());
@@ -77,7 +76,7 @@ public class FolderSyncWorker {
 
     private void printOverallProgress(StopWatch filesStopWatch, StopWatch bytesStopWatch, int syncedFilesCount) {
         System.out.println("---------------------");
-               String  s = "## ";
+        String s = "## ";
         s += "Files: " + filesStopWatch.getProcessed() + "/" + filesStopWatch.getTotalCount();
         s += " Synced: " + syncedFilesCount;
         s += ", ";
