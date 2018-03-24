@@ -46,11 +46,16 @@ public class FolderSyncWorker {
         AtomicInteger syncedFilesCount = new AtomicInteger(0);
         StopWatch bytesStopWatch = new StopWatch(localFilesSizeComplete.get());
         StopWatch processedFilesStopWatch = new StopWatch(localFiles.size());
+        List<Double> speeds = new ArrayList<>();
 
         localFiles.forEach(filePair -> {
             if (shouldSync(filePair)) {
                 try {
+                    StopWatch uploadStopWatch = new StopWatch();
                     uploadLocalFileToRemote(filePair);
+
+                    double speed = (double)((double)filePair.getLocal().getSize() / ((double)uploadStopWatch.getElapsedTimeMillis()/1000.0));
+                    speeds.add(speed);
 
                     syncedFiles.add(filePair);
                     bytesStopWatch.increment(filePair.getLocal().getSize());
@@ -64,17 +69,17 @@ public class FolderSyncWorker {
 
             processedFilesStopWatch.increment();
 
-            printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get());
+            printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get(), speeds);
 
         });
 
-        printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get());
+        printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get(), speeds);
 
 
         return syncedFiles;
     }
 
-    private void printOverallProgress(StopWatch filesStopWatch, StopWatch bytesStopWatch, int syncedFilesCount) {
+    private void printOverallProgress(StopWatch filesStopWatch, StopWatch bytesStopWatch, int syncedFilesCount, List<Double> speeds) {
         System.out.println("---------------------");
         String s = "## ";
         s += "Files: " + filesStopWatch.getProcessed() + "/" + filesStopWatch.getTotalCount();
@@ -84,8 +89,18 @@ public class FolderSyncWorker {
         s += ", ";
         s += "Time: " + DPHelpers.formatDuration(bytesStopWatch.getElapsedTimeMillis(), DPHelpers.DurationFormat.dhms) + " ";
         s += "Remaining: " + DPHelpers.formatDuration(bytesStopWatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms);
+        s += ", ";
+        s += "Avg.Speed: " +DPHelpers.formatBytes(getAvgSpeed(speeds)) + "/s";
 
         System.out.println(s);
+    }
+
+    private double getAvgSpeed(List<Double> speeds) {
+        double speedTotal = 0;
+        for (Double d : speeds) {
+            speedTotal += d;
+        }
+        return speedTotal / speeds.size();
     }
 
     private Collection<SyncFilePair> indexFiles() {
