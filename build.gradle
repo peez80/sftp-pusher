@@ -27,6 +27,8 @@ dependencies {
     compile group: 'com.jcraft', name: 'jsch', version: '0.1.54'
     compile group: 'commons-io', name: 'commons-io', version: '2.6'
     compile "com.github.peez80:dphelpers:1.0.1"
+    compile group: 'commons-cli', name: 'commons-cli', version: '1.4'
+
 
 
 
@@ -47,4 +49,8 @@ shadowJar {
 
 task wrapper(type: Wrapper) {
     gradleVersion = '4.6' //version required
+}
+
+task buildDocker (type: Exec) {
+    commandLine 'docker', 'build', '-t', 'peez/sftp-push', '.'
 }
