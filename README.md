@@ -11,6 +11,13 @@ This saves me from e.g. my own dumbness, if I accidentially delete anything ;)
 
 
 # Usage
-Just run "java -jar foldersync.jar" and get a command line explanation. Or better run the docker image (that makes sure that you can mount only what you need):
+Currently it only runs via docker. Just mount the root dir of your backup (with readonly) to the container and set the sftp data via environment parameters:
 
-docker run -it --rm peez/sftp-pusher
+    docker run -it --rm \
+        -v <your_local_backup_root>:/backuproot:ro \
+        -e SFTP_HOST=somehost \
+        -e SFTP_USER=someuser \
+        -e SFTP_PASS=somwpassword \
+        -e SFTP_PORT=22 \
+        -e SFTP_ROOT=somedir \
+        peez/sftp-pusher

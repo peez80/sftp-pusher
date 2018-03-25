@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class FolderSyncWorker {
 
-    private int COPY_BUFFER_SIZE = 10 * 1024 * 1024;
+    private int COPY_BUFFER_SIZE = 1 * 1024 * 1024;
     /**
      * Where to start the recursive Sync
      */
