@@ -1,5 +1,6 @@
 package de.stiffi.admin.foldersync;
 
+import com.github.stefanbirkner.fakesftpserver.rule.FakeSftpServerRule;
 import de.stiffi.admin.foldersync.api.FileHandler;
 import org.apache.commons.io.FileUtils;
 import org.junit.*;
@@ -27,25 +28,17 @@ public class FolderSyncWorkerTest {
     private static final String SFTP_HOST = "localhost";
     private static final String SFTP_USER = "foo";
     private static final String SFTP_PASS = "pass";
-    private static final int SFTP_PORT = 22;
     private static final String SFTP_ROOT_PATH = "/upload";
 
+    @Rule
+    public final FakeSftpServerRule sftpServer = new FakeSftpServerRule();
 
 
-
-    @BeforeClass
-    public static void setupClass() throws IOException, InterruptedException {
-        startSftpContainer();
-        setupVerifySftpConnection();
+    private int getSftpPort() {
+        return sftpServer.getPort();
     }
 
 
-
-    @AfterClass
-    public static void stopSftpContainer() throws IOException, InterruptedException {
-        Runtime.getRuntime().exec("docker rm -f sftptest");
-        Thread.sleep(1000);
-    }
 
 
     @Test
@@ -53,13 +46,13 @@ public class FolderSyncWorkerTest {
         //Given
 
         //When
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
     }
 
     @Test
     public void testSync() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         me.setCopyBufferSize(300);
 
         //When
@@ -75,13 +68,13 @@ public class FolderSyncWorkerTest {
     @Test
     public void testSyncAndOnlyNewFile() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         me.go();
 
 
         //When
         Path testFileAbsolutePath= createLocalTestFile("some/other/path/myNewFile.txt", 10);
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         List<SyncFilePair> syncedFiles = me.go();
 
 
@@ -93,13 +86,13 @@ public class FolderSyncWorkerTest {
     @Test
     public void testSyncFileSizeChangedFile() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         me.go();
 
 
         //When
         Path testFileAbsolutePath= createLocalTestFile(testFilesRelativePaths.get(0).toString(), 20000);
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         List<SyncFilePair> syncedFiles = me.go();
 
 
@@ -111,13 +104,13 @@ public class FolderSyncWorkerTest {
     @Test
     public void testSyncModifiedTimeChangedFile() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         me.go();
 
 
         //When
         Files.setLastModifiedTime(getLocalRootPath().resolve(testFilesRelativePaths.get(2)), FileTime.from(LocalDateTime.now().plusDays(1).toInstant(ZoneOffset.UTC)));
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         List<SyncFilePair> syncedFiles = me.go();
 
 
@@ -129,16 +122,16 @@ public class FolderSyncWorkerTest {
     @Test
     public void testNoAdditionalSyncNecessary() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         me.go();
 
 
         Files.setLastModifiedTime(getLocalRootPath().resolve(testFilesRelativePaths.get(2)), FileTime.from(LocalDateTime.now().plusDays(1).toInstant(ZoneOffset.UTC)));
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         me.go();
 
         //When
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT, SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
         List<SyncFilePair> syncedFiles = me.go();
 
         //Then
@@ -154,7 +147,9 @@ public class FolderSyncWorkerTest {
     }
 
     @Before
-    public void setupTestDirectory() throws IOException {
+    public void beforeTest() throws IOException {
+        setupVerifySftpConnection();
+
 
         FileUtils.cleanDirectory(getLocalRootPath().toFile());
 
@@ -191,20 +186,14 @@ public class FolderSyncWorkerTest {
         return path;
     }
 
-    private static void startSftpContainer() throws IOException, InterruptedException {
-        stopSftpContainer();
-        System.out.println("Starting SFTP Docker");
-        Runtime.getRuntime().exec("docker run -itd --name sftptest -p 22:22 -d atmoz/sftp foo:pass:::upload");
-        Thread.sleep(4000);
-    }
-
-    private static void setupVerifySftpConnection() {
-        sftpConnection = new SftpConnection(SFTP_HOST, SFTP_USER, SFTP_PASS, SFTP_PORT);
+    private void setupVerifySftpConnection() {
+        sftpConnection = new SftpConnection(SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort());
     }
 
     private void assertFileBackupped(Path relativePath) throws IOException {
         Path localPath = getLocalRootPath().resolve(relativePath);
         String remotePath = (SFTP_ROOT_PATH + "/" + relativePath.toString()).replace("\\", "/");
+
         FileHandler remote= sftpConnection.getFileHandler(remotePath);
 
         Assert.assertEquals(Files.exists(localPath), remote.exists());

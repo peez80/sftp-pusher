@@ -51,6 +51,7 @@ public class FolderSyncWorker {
         localFiles.forEach(filePair -> {
             if (shouldSync(filePair)) {
                 try {
+                    System.out.println("");
                     StopWatch uploadStopWatch = new StopWatch();
                     uploadLocalFileToRemote(filePair);
 
@@ -60,6 +61,8 @@ public class FolderSyncWorker {
                     syncedFiles.add(filePair);
                     bytesStopWatch.increment(filePair.getLocal().getSize());
                     syncedFilesCount.incrementAndGet();
+
+                    System.out.println("------");
 
 
                 } catch (IOException e) {
@@ -80,7 +83,6 @@ public class FolderSyncWorker {
     }
 
     private void printOverallProgress(StopWatch filesStopWatch, StopWatch bytesStopWatch, int syncedFilesCount, List<Double> speeds) {
-        System.out.println("---------------------");
         String s = "## ";
         s += "Files: " + filesStopWatch.getProcessed() + "/" + filesStopWatch.getTotalCount();
         s += " Synced: " + syncedFilesCount;
@@ -90,9 +92,9 @@ public class FolderSyncWorker {
         s += "Time: " + DPHelpers.formatDuration(bytesStopWatch.getElapsedTimeMillis(), DPHelpers.DurationFormat.dhms) + " ";
         s += "Remaining: " + DPHelpers.formatDuration(bytesStopWatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms);
         s += ", ";
-        s += "Avg.Speed: " +DPHelpers.formatBytes(getAvgSpeed(speeds)) + "/s";
+        s += "Avg.Speed: " +DPHelpers.formatBytes(getAvgSpeed(speeds)) + "/s  \r";
 
-        System.out.println(s);
+        System.out.print(s);
     }
 
     private double getAvgSpeed(List<Double> speeds) {
