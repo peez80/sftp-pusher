@@ -44,7 +44,7 @@ public class FolderSyncWorker {
         List<SyncFilePair> syncedFiles = new ArrayList<>();
 
         AtomicInteger syncedFilesCount = new AtomicInteger(0);
-        StopWatch bytesStopWatch = new StopWatch(localFilesSizeComplete.get());
+        StopWatch processedBytesStopwatch = new StopWatch(localFilesSizeComplete.get());
         StopWatch processedFilesStopWatch = new StopWatch(localFiles.size());
         List<Double> speeds = new ArrayList<>();
 
@@ -59,7 +59,6 @@ public class FolderSyncWorker {
                     speeds.add(speed);
 
                     syncedFiles.add(filePair);
-                    bytesStopWatch.increment(filePair.getLocal().getSize());
                     syncedFilesCount.incrementAndGet();
 
                     System.out.println("------");
@@ -70,13 +69,14 @@ public class FolderSyncWorker {
                 }
             }
 
+            processedBytesStopwatch.increment(filePair.getLocal().getSize());
             processedFilesStopWatch.increment();
 
-            printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get(), speeds);
+            printOverallProgress(processedFilesStopWatch, processedBytesStopwatch, syncedFilesCount.get(), speeds);
 
         });
 
-        printOverallProgress(processedFilesStopWatch, bytesStopWatch, syncedFilesCount.get(), speeds);
+        printOverallProgress(processedFilesStopWatch, processedBytesStopwatch, syncedFilesCount.get(), speeds);
 
 
         return syncedFiles;
