@@ -25,7 +25,12 @@ public class FolderSyncWorker {
 
     private SftpConnection sftpConnection;
     private List<SyncFilePair> localFiles;
-    private AtomicLong localFilesSizeComplete;
+    private AtomicLong localFilesSizeComplete = new AtomicLong(0l);
+
+    private List<SyncFilePair> filesToPush = new ArrayList<>();
+    private AtomicLong filesToPushSizeComplete = new AtomicLong(0l);
+
+    private List<SyncFilePair> pushedFiles = new ArrayList<>();
 
 
     public FolderSyncWorker(Path localRootPath, String sftpHost, String sftpUser, String sftpPassword, int sftpPort, String sftpRootPath) {
@@ -39,60 +44,88 @@ public class FolderSyncWorker {
     }
 
     public List<SyncFilePair> go() {
-        indexFiles();
+        indexLocalFiles();
+        System.out.println("\r\n\r\n");
+        findFilesToSync();
+        System.out.println("\r\n\r\n");
+        pushFoundFiles();
+        System.out.println("\r\n\r\n");
+        return pushedFiles;
+    }
 
-        List<SyncFilePair> syncedFiles = new ArrayList<>();
-
-        AtomicInteger syncedFilesCount = new AtomicInteger(0);
-        StopWatch processedBytesStopwatch = new StopWatch(localFilesSizeComplete.get());
-        StopWatch processedFilesStopWatch = new StopWatch(localFiles.size());
+    private void pushFoundFiles() {
+        StopWatch transferredBytesStopWatch = new StopWatch(localFilesSizeComplete.get());
+        StopWatch transferredFilesStopWatch = new StopWatch(localFiles.size());
         List<Double> speeds = new ArrayList<>();
+
+
+        for (SyncFilePair filePair : filesToPush) {
+            System.out.println("");
+            StopWatch uploadStopWatch = new StopWatch();
+            try {
+                uploadLocalFileToRemote(filePair);
+                pushedFiles.add(filePair);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            double speed = (double) ((double) filePair.getLocal().getSize() / ((double) uploadStopWatch.getElapsedTimeMillis() / 1000.0));
+            speeds.add(speed);
+
+            transferredFilesStopWatch.increment();
+
+            transferredBytesStopWatch.increment(filePair.getLocal().getSize());
+
+            System.out.println("------");
+
+            printOverallProgress(transferredBytesStopWatch, transferredFilesStopWatch, speeds);
+        }
+    }
+
+    public List<SyncFilePair> getPushedFiles() {
+        return pushedFiles;
+    }
+
+    private void findFilesToSync() {
+
+        StopWatch filesProcessedStopwatch = new StopWatch(localFiles.size());
+        AtomicLong bytesProcessed = new AtomicLong(0l);
+
+        final String s = "Processed: %d (%s) / %d (%s), Need Sync: %d (%s), Duration: %s, Remaining: %s        \r";
 
         localFiles.forEach(filePair -> {
             if (shouldSync(filePair)) {
-                try {
-                    System.out.println("");
-                    StopWatch uploadStopWatch = new StopWatch();
-                    uploadLocalFileToRemote(filePair);
-
-                    double speed = (double)((double)filePair.getLocal().getSize() / ((double)uploadStopWatch.getElapsedTimeMillis()/1000.0));
-                    speeds.add(speed);
-
-                    syncedFiles.add(filePair);
-                    syncedFilesCount.incrementAndGet();
-
-                    System.out.println("------");
-
-
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                markForSync(filePair);
             }
 
-            processedBytesStopwatch.increment(filePair.getLocal().getSize());
-            processedFilesStopWatch.increment();
+            filesProcessedStopwatch.increment();
+            bytesProcessed.addAndGet(filePair.getLocal().getSize());
 
-            printOverallProgress(processedFilesStopWatch, processedBytesStopwatch, syncedFilesCount.get(), speeds);
-
+            System.out.print(String.format(s,
+                    filesProcessedStopwatch.getProcessed(), DPHelpers.formatBytes(bytesProcessed.get()),
+                    filesProcessedStopwatch.getTotalCount(), DPHelpers.formatBytes(localFilesSizeComplete.get()),
+                    filesToPush.size(), DPHelpers.formatBytes(filesToPushSizeComplete.get()),
+                    DPHelpers.formatDuration(filesProcessedStopwatch.getElapsedTimeMillis(), DPHelpers.DurationFormat.dhms),
+                    DPHelpers.formatDuration(filesProcessedStopwatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms)
+            ));
         });
-
-        printOverallProgress(processedFilesStopWatch, processedBytesStopwatch, syncedFilesCount.get(), speeds);
-
-
-        return syncedFiles;
     }
 
-    private void printOverallProgress(StopWatch filesStopWatch, StopWatch bytesStopWatch, int syncedFilesCount, List<Double> speeds) {
+    private void markForSync(SyncFilePair filePair) {
+        filesToPush.add(filePair);
+        filesToPushSizeComplete.addAndGet(filePair.getLocal().getSize());
+    }
+
+    private void printOverallProgress(StopWatch transferredBytesStopwatch, StopWatch syncedFilesCountStopwatch, List<Double> speeds) {
         String s = "## ";
-        s += "Files: " + filesStopWatch.getProcessed() + "/" + filesStopWatch.getTotalCount();
-        s += " Synced: " + syncedFilesCount;
+        s += " Files: " + syncedFilesCountStopwatch.getProcessed() + " / " + syncedFilesCountStopwatch.getTotalCount();
         s += ", ";
-        s += "Size: " + DPHelpers.formatBytes(bytesStopWatch.getProcessed()) + " / " + DPHelpers.formatBytes(bytesStopWatch.getTotalCount());
+        s += "Size: " + DPHelpers.formatBytes(transferredBytesStopwatch.getProcessed()) + " / " + DPHelpers.formatBytes(transferredBytesStopwatch.getTotalCount());
         s += ", ";
-        s += "Time: " + DPHelpers.formatDuration(bytesStopWatch.getElapsedTimeMillis(), DPHelpers.DurationFormat.dhms) + " ";
-        s += "Remaining: " + DPHelpers.formatDuration(bytesStopWatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms);
+        s += "Time: " + DPHelpers.formatDuration(transferredBytesStopwatch.getElapsedTimeMillis(), DPHelpers.DurationFormat.dhms) + " ";
+        s += "Remaining: " + DPHelpers.formatDuration(transferredBytesStopwatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms);
         s += ", ";
-        s += "Avg.Speed: " +DPHelpers.formatBytes(getAvgSpeed(speeds)) + "/s  \r";
+        s += "Avg.Speed: " + DPHelpers.formatBytes(getAvgSpeed(speeds)) + "/s  \r";
 
         System.out.print(s);
     }
@@ -105,8 +138,7 @@ public class FolderSyncWorker {
         return speedTotal / speeds.size();
     }
 
-    private Collection<SyncFilePair> indexFiles() {
-
+    private void indexLocalFiles() {
         localFiles = new LinkedList<>();
         localFilesSizeComplete = new AtomicLong(0);
 
@@ -128,7 +160,6 @@ public class FolderSyncWorker {
         dirSpider.go();
         System.out.println("Indexed Files: " + indexedFiles.get() + ", Size: " + DPHelpers.formatBytes(localFilesSizeComplete.get()) + "     ");
         System.out.println("");
-        return localFiles;
     }
 
 
