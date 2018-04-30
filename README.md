@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/peez80/sftp-pusher.svg?branch=master)](https://travis-ci.org/peez80/sftp-pusher)
+
 # FolderSync
 
 I'm doing remote backup to a other's synology, but since rsync stopped working for some reason and cloudSync won't be able
