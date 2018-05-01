@@ -45,15 +45,13 @@ public class FolderSyncWorker {
 
     public List<SyncFilePair> go() {
         indexLocalFiles();
-        System.out.println("\r\n\r\n");
         findFilesToSync();
-        System.out.println("\r\n\r\n");
         pushFoundFiles();
-        System.out.println("\r\n\r\n");
         return pushedFiles;
     }
 
     private void pushFoundFiles() {
+        System.out.println("--- Pushing Files..");
         StopWatch transferredBytesStopWatch = new StopWatch(localFilesSizeComplete.get());
         StopWatch transferredFilesStopWatch = new StopWatch(localFiles.size());
         List<Double> speeds = new ArrayList<>();
@@ -87,6 +85,7 @@ public class FolderSyncWorker {
     }
 
     private void findFilesToSync() {
+        System.out.println("--- Searching files that should be pushed...");
 
         StopWatch filesProcessedStopwatch = new StopWatch(localFiles.size());
         AtomicLong bytesProcessed = new AtomicLong(0l);
@@ -109,6 +108,8 @@ public class FolderSyncWorker {
                     DPHelpers.formatDuration(filesProcessedStopwatch.getEstimatedRemainingTimeMillis(), DPHelpers.DurationFormat.dhms)
             ));
         });
+
+        System.out.println("");
     }
 
     private void markForSync(SyncFilePair filePair) {
@@ -139,6 +140,7 @@ public class FolderSyncWorker {
     }
 
     private void indexLocalFiles() {
+        System.out.println("--- Searching local files...");
         localFiles = new LinkedList<>();
         localFilesSizeComplete = new AtomicLong(0);
 

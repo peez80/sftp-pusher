@@ -55,6 +55,9 @@ public class FolderSync {
 
         FolderSyncWorker me = new FolderSyncWorker(localRoot, host, user, pass, port, remoteRoot);
         me.go();
+        System.out.println("");
+        System.out.println("SFTP Push done.");
+        System.out.println("");
 
         System.exit(0);
     }
