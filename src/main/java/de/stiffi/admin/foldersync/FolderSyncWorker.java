@@ -52,8 +52,8 @@ public class FolderSyncWorker {
 
     private void pushFoundFiles() {
         System.out.println("--- Pushing Files..");
-        StopWatch transferredBytesStopWatch = new StopWatch(localFilesSizeComplete.get());
-        StopWatch transferredFilesStopWatch = new StopWatch(localFiles.size());
+        StopWatch transferredBytesStopWatch = new StopWatch(filesToPushSizeComplete.get());
+        StopWatch transferredFilesStopWatch = new StopWatch(filesToPush.size());
         List<Double> speeds = new ArrayList<>();
 
 
