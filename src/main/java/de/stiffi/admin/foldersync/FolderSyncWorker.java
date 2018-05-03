@@ -63,7 +63,7 @@ public class FolderSyncWorker {
             try {
                 uploadLocalFileToRemote(filePair);
                 pushedFiles.add(filePair);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
 
