@@ -25,10 +25,10 @@ public class FolderSyncWorkerTest {
 
     private static SftpConnection sftpConnection;
 
-    private static final String SFTP_HOST = "localhost";
-    private static final String SFTP_USER = "foo";
-    private static final String SFTP_PASS = "pass";
-    private static final String SFTP_ROOT_PATH = "/upload";
+    public static final String SFTP_HOST = "localhost";
+    public static final String SFTP_USER = "foo";
+    public static final String SFTP_PASS = "pass";
+    public static final String SFTP_ROOT_PATH = "/upload";
 
     @Rule
     public final FakeSftpServerRule sftpServer = new FakeSftpServerRule();
@@ -42,12 +42,13 @@ public class FolderSyncWorkerTest {
 
 
     @Test
-    public void testConnect() throws InterruptedException, IOException {
+    public void testConnectWithCorrectPassword() throws InterruptedException, IOException {
         //Given
 
         //When
         FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
     }
+
 
     @Test
     public void testSync() throws IOException {

@@ -48,9 +48,20 @@ shadowJar {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.6' //version required
+    gradleVersion = '4.7' //version required
+}
+
+task copyBuildFiles(type: Copy) {
+    from("${projectDir}") {
+        exclude "build"
+    }
+    into("${buildDir}/docker")
+    exclude("build")
+
 }
 
 task buildDocker (type: Exec) {
+    dependsOn copyBuildFiles
+    workingDir "$buildDir/docker"
     commandLine 'docker', 'build', '-t', 'peez/sftp-push', '.'
 }

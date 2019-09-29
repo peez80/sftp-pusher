@@ -33,10 +33,10 @@ public class FolderSyncWorker {
     private List<SyncFilePair> pushedFiles = new ArrayList<>();
 
 
-    public FolderSyncWorker(Path localRootPath, String sftpHost, String sftpUser, String sftpPassword, int sftpPort, String sftpRootPath) {
+    public FolderSyncWorker(Path localRootPath, String sftpHost, String sftpUser, String sftpPasswordOrPrivateKey, int sftpPort, String sftpRootPath) {
         this.localRootPath = localRootPath;
         this.remoteRootPath = sftpRootPath;
-        sftpConnection = new SftpConnection(sftpHost, sftpUser, sftpPassword, sftpPort);
+        sftpConnection = new SftpConnection(sftpHost, sftpUser, sftpPasswordOrPrivateKey, sftpPort);
     }
 
     public void setCopyBufferSize(int size) {

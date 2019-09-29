@@ -1,2 +1,2 @@
 #!/bin/bash
-/opt/foldersync/bin/foldersync -localroot /backuproot -sftphost ${SFTP_HOST} -sftpuser ${SFTP_USER} -sftppass ${SFTP_PASS} -sftpport ${SFTP_PORT} -sftproot ${SFTP_ROOT}
+/opt/foldersync/bin/foldersync -localroot /backuproot -sftphost ${SFTP_HOST} -sftpuser ${SFTP_USER} -sftppass ${SFTP_PASS} -privatekeyfile ${SFTP_PRIVATEKEY} -sftpport ${SFTP_PORT} -sftproot ${SFTP_ROOT}

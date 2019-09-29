@@ -7,25 +7,38 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 public class SftpConnection {
 
     private ChannelSftp sftp;
 
-    public SftpConnection(String host, String username, String password, int port) {
+    public SftpConnection(String host, String username, String passwordOrPrivateKey, int port) {
         try {
-            init(host, username, password, port);
+            init(host, username, passwordOrPrivateKey, port);
         } catch (JSchException e) {
             throw new IllegalStateException(e.getMessage(), e);
         }
     }
 
 
-    private void init(String host, String username, String password, int port) throws JSchException {
+    private void init(String host, String username, String passwordOrPrivateKey, int port) throws JSchException {
         JSch jsch = new JSch();
+
+        if (isPrivateKeyFile(passwordOrPrivateKey)) {
+            jsch.addIdentity(passwordOrPrivateKey);
+        }
+
         Session session = jsch.getSession(username, host, port);
-        session.setPassword(password);
+        if (!isPrivateKeyFile(passwordOrPrivateKey)) {
+            session.setPassword(passwordOrPrivateKey);
+        }
+
+        session.setConfig("PreferredAuthentications", "publickey,keyboard-interactive,password");
+
         session.setConfig("StrictHostKeyChecking", "no");
         System.out.println("Connect: host: " + host + ", user: " + username + ", port: " + port);
         session.connect();
@@ -33,6 +46,15 @@ public class SftpConnection {
         sftp = (ChannelSftp) session.openChannel("sftp");
         sftp.connect();
         System.out.println("SFTP Channel created.");
+    }
+
+    private boolean isPrivateKeyFile(String passwordOrPrivateKey) {
+        Path p = Paths.get(passwordOrPrivateKey);
+        if (Files.exists(p) && Files.isRegularFile(p)) {
+            return true;
+        }else {
+            return false;
+        }
     }
 
     public FileHandler getFileHandler(String path) {

@@ -14,6 +14,7 @@ VOLUME /backuproot
 ENV SFTP_HOST= \
     SFTP_USER= \
     SFTP_PASS= \
+    SFTP_PRIVATEKEY= \
     SFTP_PORT=22 \
     SFTP_ROOT=
 
