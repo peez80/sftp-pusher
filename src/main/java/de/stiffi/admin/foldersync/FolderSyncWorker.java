@@ -4,6 +4,7 @@ import de.stiffi.DPHelpers.DPHelpers;
 import de.stiffi.DPHelpers.Files.DirSpider;
 import de.stiffi.DPHelpers.Files.SimpleDirSpider;
 import de.stiffi.DPHelpers.StopWatch;
+import de.stiffi.admin.foldersync.localdb.LocalDB;
 
 import java.io.*;
 import java.nio.file.*;
@@ -31,12 +32,47 @@ public class FolderSyncWorker {
     private AtomicLong filesToPushSizeComplete = new AtomicLong(0l);
 
     private List<SyncFilePair> pushedFiles = new ArrayList<>();
+    private final boolean useLocalDb;
+
+    private LocalDB localDb = new LocalDB();
 
 
-    public FolderSyncWorker(Path localRootPath, String sftpHost, String sftpUser, String sftpPassword, int sftpPort, String sftpRootPath) {
+    public FolderSyncWorker(Path localRootPath, String sftpHost, String sftpUser, String sftpPassword, int sftpPort, String sftpRootPath, boolean useLocalDb) {
         this.localRootPath = localRootPath;
         this.remoteRootPath = sftpRootPath;
+        this.useLocalDb = useLocalDb;
         sftpConnection = new SftpConnection(sftpHost, sftpUser, sftpPassword, sftpPort);
+        loadDb();
+    }
+
+    private void loadDb() {
+        if (useLocalDb && Files.exists(getDbPath())) {
+            try {
+                System.out.print("Loading Database...");
+                localDb.load(getDbPath());
+                System.out.println("" + localDb.size());
+            } catch (IOException e) {
+                throw new IllegalStateException(e.getMessage(), e);
+            }
+        }
+    }
+
+    private void saveDb() {
+        if (useLocalDb) {
+            try {
+                Files.createDirectories(getDbPath().getParent());
+                System.out.print("Saving Database...");
+                localDb.save(getDbPath());
+                System.out.println("done");
+            } catch (IOException e) {
+                throw new IllegalStateException(e.getMessage(), e);
+            }
+        }
+    }
+
+    protected static Path getDbPath() {
+        String dataFolder = System.getProperty("user.home") + "/.foldersync/localDb.json";
+        return Paths.get(dataFolder);
     }
 
     public void setCopyBufferSize(int size) {
@@ -63,6 +99,7 @@ public class FolderSyncWorker {
             try {
                 uploadLocalFileToRemote(filePair);
                 pushedFiles.add(filePair);
+                localDb.markSynched(Paths.get(filePair.getLocal().getPath()));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -167,6 +204,15 @@ public class FolderSyncWorker {
 
     private boolean shouldSync(SyncFilePair filePair) {
         //Currently only one-way sync and we won't remove any deleted files
+
+        if (useLocalDb) {
+            try {
+                return localDb.needsSync(Paths.get(filePair.getLocal().getPath()));
+            } catch (IOException e) {
+                throw new IllegalStateException(e.getMessage(), e);
+            }
+        }
+
         if (!filePair.getRemote().exists()) {
             return true;
         } else if (filePair.getLocal().getSize() != filePair.getRemote().getSize()) {

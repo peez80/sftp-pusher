@@ -14,6 +14,7 @@ public class FolderSync {
     public static final String SFTPPASS = "sftppass";
     public static final String SFTPPORT = "sftpport";
     public static final String SFTPROOT = "sftproot";
+    public static final String LOCAL_DB ="uselocaldb";
 
     private static boolean isCommandValid(CommandLine cmd) {
         return cmd.hasOption(LOCAL_ROOT)
@@ -33,6 +34,7 @@ public class FolderSync {
         options.addOption(SFTPPASS, true, "Password to log into the target SFTP Server");
         options.addOption(SFTPPORT, true, "Port to use for the target SFTP server");
         options.addOption(SFTPROOT, true, "Root Directory to place the backed up files on remote SFTP Server");
+        options.addOption(LOCAL_DB, false, "If used this switch, a local DB is used to identify already transferred files. Speeds up synch.");
 
         CommandLineParser parser = new DefaultParser();
         CommandLine cmd = parser.parse( options, args);
@@ -51,9 +53,10 @@ public class FolderSync {
         String pass = cmd.getOptionValue(SFTPPASS);
         int port = Integer.parseInt(cmd.getOptionValue(SFTPPORT));
         String remoteRoot = cmd.getOptionValue(SFTPROOT);
+        boolean useLocalDb = Boolean.valueOf(cmd.getOptionValue(LOCAL_DB)); //TODO: passt so bestimmt nicht
 
 
-        FolderSyncWorker me = new FolderSyncWorker(localRoot, host, user, pass, port, remoteRoot);
+        FolderSyncWorker me = new FolderSyncWorker(localRoot, host, user, pass, port, remoteRoot, useLocalDb);
         me.go();
         System.out.println("");
         System.out.println("SFTP Push done.");
