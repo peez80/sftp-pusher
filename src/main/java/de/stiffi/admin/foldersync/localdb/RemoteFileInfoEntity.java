@@ -1,9 +1,9 @@
 package de.stiffi.admin.foldersync.localdb;
 
+import java.io.Serializable;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
-public class RemoteFileInfoEntity {
+public class RemoteFileInfoEntity implements Serializable {
     private String localPath;
     private long lastSyncTimestamp;
     private long lastSyncFilesize;

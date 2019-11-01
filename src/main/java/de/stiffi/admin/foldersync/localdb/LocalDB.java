@@ -1,61 +1,71 @@
 package de.stiffi.admin.foldersync.localdb;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.rmi.Remote;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 public class LocalDB {
 
-    private Map<Path, RemoteFileInfoEntity> db = new HashMap<>();
+    private Set<RemoteFileInfoEntity> db = new HashSet<>();
 
-    public boolean needsSync(Path localFilePath) throws IOException {
-        RemoteFileInfoEntity dbEntry = db.get(localFilePath);
+    private RemoteFileInfoEntity find(String localFilePath) {
+        for (RemoteFileInfoEntity e : db) {
+            if (e.getLocalPath().equalsIgnoreCase(localFilePath)) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    public boolean needsSync(String localFilePath) throws IOException {
+        RemoteFileInfoEntity dbEntry = find(localFilePath);
         if (dbEntry == null) {
             return true;
         }
 
-        return Files.size(localFilePath) != dbEntry.getLastSyncFilesize()
-                || Files.getLastModifiedTime(localFilePath).toMillis() != dbEntry.getLastSyncFilesize();
+        Path localFile = Paths.get(localFilePath);
+        return Files.size(localFile) != dbEntry.getLastSyncFilesize()
+                || Files.getLastModifiedTime(localFile).toMillis() != dbEntry.getLastSyncTimestamp();
     }
 
-    public void markSynched(Path path) {
-        RemoteFileInfoEntity fileInfo = db.get(path);
+    public void markSynched(String path) {
+        RemoteFileInfoEntity fileInfo = find(path);
+        Path file = Paths.get(path);
         if (fileInfo == null) {
-            fileInfo = new RemoteFileInfoEntity(path);
-            db.put(path, fileInfo);
+            fileInfo = new RemoteFileInfoEntity(file);
+            db.add(fileInfo);
         }
 
         try {
-            fileInfo.setLastSyncTimestamp(System.currentTimeMillis());
-            fileInfo.setLastSyncFilesize(Files.size(path));
+            fileInfo.setLastSyncTimestamp(Files.getLastModifiedTime(file).toMillis());
+            fileInfo.setLastSyncFilesize(Files.size(file));
         } catch (IOException e) {
             throw new IllegalStateException(e.getMessage(), e);
         }
     }
 
-    public void remove(Path path) {
+    public void remove(String path) {
         db.remove(path);
     }
 
     public void load(Path dbFile) throws IOException {
-        Gson gson = new GsonBuilder().create();
-        String json = new String(Files.readAllBytes(dbFile));
-        Map<Path, RemoteFileInfoEntity> map = gson.fromJson(json, HashMap.class);
-        db = map;
+        try (ObjectInputStream in = new ObjectInputStream(Files.newInputStream(dbFile))) {
+            db = (Set<RemoteFileInfoEntity>) in.readObject();
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException(e.getMessage(), e);
+        }
     }
 
     public void save(Path dbFile) throws IOException {
-        Gson gson = new GsonBuilder().create();
-        String json = gson.toJson(db);
-        Files.write(dbFile, json.getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+        try (ObjectOutputStream out = new ObjectOutputStream(Files.newOutputStream(dbFile, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))) {
+            out.writeObject(db);
+        }
     }
 
     public int size() {

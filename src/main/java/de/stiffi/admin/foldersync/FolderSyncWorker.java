@@ -7,8 +7,12 @@ import de.stiffi.DPHelpers.StopWatch;
 import de.stiffi.admin.foldersync.localdb.LocalDB;
 
 import java.io.*;
-import java.nio.file.*;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -42,7 +46,6 @@ public class FolderSyncWorker {
         this.remoteRootPath = sftpRootPath;
         this.useLocalDb = useLocalDb;
         sftpConnection = new SftpConnection(sftpHost, sftpUser, sftpPassword, sftpPort);
-        loadDb();
     }
 
     private void loadDb() {
@@ -80,9 +83,11 @@ public class FolderSyncWorker {
     }
 
     public List<SyncFilePair> go() {
+        loadDb();
         indexLocalFiles();
         findFilesToSync();
         pushFoundFiles();
+        saveDb();
         return pushedFiles;
     }
 
@@ -99,7 +104,7 @@ public class FolderSyncWorker {
             try {
                 uploadLocalFileToRemote(filePair);
                 pushedFiles.add(filePair);
-                localDb.markSynched(Paths.get(filePair.getLocal().getPath()));
+                localDb.markSynched(filePair.getLocal().getPath());
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -207,7 +212,7 @@ public class FolderSyncWorker {
 
         if (useLocalDb) {
             try {
-                return localDb.needsSync(Paths.get(filePair.getLocal().getPath()));
+                return localDb.needsSync(filePair.getLocal().getPath());
             } catch (IOException e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
