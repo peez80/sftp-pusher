@@ -1,7 +1,7 @@
 FROM openjdk:8
 COPY ./ ./
 RUN chmod +x ./gradlew
-RUN ./gradlew installDist
+RUN ./gradlew check installDist
 
 
 FROM alpine:latest

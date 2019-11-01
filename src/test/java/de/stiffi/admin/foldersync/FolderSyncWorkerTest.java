@@ -3,7 +3,10 @@ package de.stiffi.admin.foldersync;
 import com.github.stefanbirkner.fakesftpserver.rule.FakeSftpServerRule;
 import de.stiffi.admin.foldersync.api.FileHandler;
 import org.apache.commons.io.FileUtils;
-import org.junit.*;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
 import org.kohsuke.randname.RandomNameGenerator;
 
 import java.io.File;
@@ -46,13 +49,13 @@ public class FolderSyncWorkerTest {
         //Given
 
         //When
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
     }
 
     @Test
     public void testSync() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
         me.setCopyBufferSize(300);
 
         //When
@@ -66,15 +69,48 @@ public class FolderSyncWorkerTest {
     }
 
     @Test
+    public void testSyncWithEmptyLocalDb() throws IOException {
+        //Given
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
+
+        //When
+        List<SyncFilePair> syncedFiles = me.go();
+
+        //Then
+        Assert.assertEquals("Synched Files not equal to source files. Synched Files: " + syncedFiles, testFilesRelativePaths.size(), syncedFiles.size());
+        for (Path relativePath : testFilesRelativePaths) {
+            assertFileBackupped(relativePath);
+        }
+    }
+
+    @Test
     public void testSyncAndOnlyNewFile() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
         me.go();
 
 
         //When
         Path testFileAbsolutePath= createLocalTestFile("some/other/path/myNewFile.txt", 10);
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
+        List<SyncFilePair> syncedFiles = me.go();
+
+
+        //Then
+        Assert.assertEquals(1, syncedFiles.size());
+        assertFileBackupped(getLocalRootPath().relativize(testFileAbsolutePath));
+    }
+
+    @Test
+    public void testSyncAndOnlyNewFileWithLocalDB() throws IOException {
+        //Given
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
+        me.go();
+
+
+        //When
+        Path testFileAbsolutePath= createLocalTestFile("some/other/path/myNewFile.txt", 10);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
         List<SyncFilePair> syncedFiles = me.go();
 
 
@@ -86,13 +122,32 @@ public class FolderSyncWorkerTest {
     @Test
     public void testSyncFileSizeChangedFile() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
         me.go();
 
 
         //When
         Path testFileAbsolutePath= createLocalTestFile(testFilesRelativePaths.get(0).toString(), 20000);
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
+        List<SyncFilePair> syncedFiles = me.go();
+
+
+        //Then
+        Assert.assertEquals(1, syncedFiles.size());
+        assertFileBackupped(testFilesRelativePaths.get(0));
+    }
+
+
+    @Test
+    public void testSyncFileSizeChangedFileWithLocalDB() throws IOException {
+        //Given
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
+        me.go();
+
+
+        //When
+        Path testFileAbsolutePath= createLocalTestFile(testFilesRelativePaths.get(0).toString(), 20000);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
         List<SyncFilePair> syncedFiles = me.go();
 
 
@@ -104,13 +159,31 @@ public class FolderSyncWorkerTest {
     @Test
     public void testSyncModifiedTimeChangedFile() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
         me.go();
 
 
         //When
         Files.setLastModifiedTime(getLocalRootPath().resolve(testFilesRelativePaths.get(2)), FileTime.from(LocalDateTime.now().plusDays(1).toInstant(ZoneOffset.UTC)));
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
+        List<SyncFilePair> syncedFiles = me.go();
+
+
+        //Then
+        Assert.assertEquals(1, syncedFiles.size());
+        assertFileBackupped(testFilesRelativePaths.get(0));
+    }
+
+    @Test
+    public void testSyncModifiedTimeChangedFileWithLocalDB() throws IOException {
+        //Given
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
+        me.go();
+
+
+        //When
+        Files.setLastModifiedTime(getLocalRootPath().resolve(testFilesRelativePaths.get(2)), FileTime.from(LocalDateTime.now().plusDays(1).toInstant(ZoneOffset.UTC)));
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
         List<SyncFilePair> syncedFiles = me.go();
 
 
@@ -122,16 +195,35 @@ public class FolderSyncWorkerTest {
     @Test
     public void testNoAdditionalSyncNecessary() throws IOException {
         //Given
-        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
         me.go();
 
 
         Files.setLastModifiedTime(getLocalRootPath().resolve(testFilesRelativePaths.get(2)), FileTime.from(LocalDateTime.now().plusDays(1).toInstant(ZoneOffset.UTC)));
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
         me.go();
 
         //When
-        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH);
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, false);
+        List<SyncFilePair> syncedFiles = me.go();
+
+        //Then
+        Assert.assertEquals(0, syncedFiles.size());
+    }
+
+    @Test
+    public void testNoAdditionalSyncNecessaryWithLocalDB() throws IOException {
+        //Given
+        FolderSyncWorker me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
+        me.go();
+
+
+        Files.setLastModifiedTime(getLocalRootPath().resolve(testFilesRelativePaths.get(2)), FileTime.from(LocalDateTime.now().plusDays(1).toInstant(ZoneOffset.UTC)));
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
+        me.go();
+
+        //When
+        me = new FolderSyncWorker(getLocalRootPath(), SFTP_HOST, SFTP_USER, SFTP_PASS, getSftpPort(), SFTP_ROOT_PATH, true);
         List<SyncFilePair> syncedFiles = me.go();
 
         //Then
@@ -159,6 +251,9 @@ public class FolderSyncWorkerTest {
         testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder1/sub2/file2.txt", 2000)));
         testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder1/sub2/file3.txt", 1500)));
         testFilesRelativePaths.add(getLocalRootPath().relativize(createLocalTestFile("folder2/file4.txt", 5000)));
+
+
+        Files.deleteIfExists(FolderSyncWorker.getDbPath());
     }
 
     /**
