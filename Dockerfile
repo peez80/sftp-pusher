@@ -15,7 +15,8 @@ ENV SFTP_HOST= \
     SFTP_USER= \
     SFTP_PASS= \
     SFTP_PORT=22 \
-    SFTP_ROOT=
+    SFTP_ROOT= \
+    USE_LOCAL_DB=false
 
 CMD ["/opt/docker-entrypoint.sh"]
 
